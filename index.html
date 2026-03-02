@@ -1,1 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead CRM System</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { text-align: center; color: #333; }
+    
+    /* Form Styles */
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .form-group { display: flex; gap: 10px; flex-wrap: wrap; }
+    input, select { padding: 12px; border: 1px solid #ddd; border-radius: 5px; flex: 1; min-width: 150px; }
+    button { padding: 12px 25px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+    button:hover { background: #218838; }
+    
+    /* Lead Card Styles */
+    .lead-card { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px; border-left: 5px solid #ffc107; }
+    .lead-card.contacted { border-left-color: #17a2b8; }
+    .lead-card.converted { border-left-color: #28a745; }
+    
+    .lead-info h3 { margin: 0 0 5px 0; color: #333; }
+    .lead-info p { margin: 0; color: #666; }
+    .source-tag { display: inline-block; background: #e9ecef; padding: 3px 10px; border-radius: 15px; font-size: 12px; margin-top: 5px; }
+    
+    .lead-actions { display: flex; flex-direction: column; gap: 10px; min-width: 150px; }
+    .lead-actions select { padding: 8px; }
+    
+    .notes-section { margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; width: 100%; }
+    .note { background: #fff3cd; padding: 8px; border-radius: 4px; margin: 5px 0; font-size: 14px; }
+    .note-form { display: flex; gap: 5px; margin-top: 10px; }
+    .note-form input { flex: 1; padding: 8px; }
+    .note-form button { padding: 8px 15px; font-size: 14px; }
+    
+    .empty-state { text-align: center; color: #999; padding: 40px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Lead Management CRM</h1>
+    
+    <!-- Add Lead Form -->
+    <div class="card">
+      <h2>Add New Lead</h2>
+      <form id="leadForm" class="form-group">
+        <input type="text" id="name" placeholder="Client Name" required>
+        <input type="email" id="email" placeholder="Client Email" required>
+        <select id="source">
+          <option value="Website">Website Contact Form</option>
+          <option value="LinkedIn">LinkedIn</option>
+          <option value="Referral">Referral</option>
+          <option value="Facebook">Facebook</option>
+          <option value="Google Ads">Google Ads</option>
+        </select>
+        <button type="submit">Add Lead</button>
+      </form>
+    </div>
 
+    <!-- Leads List -->
+    <div id="leadList"></div>
+  </div>
+
+  <script>
+    // Simple storage using LocalStorage (data persists in browser)
+    let leads = JSON.parse(localStorage.getItem('leads')) || [];
+
+    function saveLeads() {
+      localStorage.setItem('leads', JSON.stringify(leads));
+      renderLeads();
+    }
+
+    // Add new lead
+    document.getElementById('leadForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const newLead = {
+        id: Date.now(),
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        source: document.getElementById('source').value,
+        status: 'New',
+        notes: [],
+        createdAt: new Date().toLocaleDateString()
+      };
+      
+      leads.unshift(newLead);
+      saveLeads();
+      
+      // Reset form
+      this.reset();
+    });
+
+    // Update status
+    function updateStatus(id, status) {
+      const lead = leads.find(l => l.id === id);
+      if (lead) {
+        lead.status = status;
+        saveLeads();
+      }
+    }
+
+    // Add note
+    function addNote(id) {
+      const noteInput = document.getElementById(`note-${id}`);
+      const text = noteInput.value.trim();
+      
+      if (text) {
+        const lead = leads.find(l => l.id === id);
+        if (lead) {
+          lead.notes.push({ text: text, date: new Date().toLocaleString() });
+          saveLeads();
+        }
+      }
+    }
+
+    // Render leads to HTML
+    function renderLeads() {
+      const container = document.getElementById('leadList');
+      
+      if (leads.length === 0) {
+        container.innerHTML = '<div class="card empty-state">No leads yet. Add your first lead above!</div>';
+        return;
+      }
+
+      container.innerHTML = leads.map(lead => `
+        <div class="card lead-card ${lead.status.toLowerCase()}">
+          <div class="lead-info">
+            <h3>${lead.name}</h3>
+            <p>${lead.email}</p>
+            <span class="source-tag">📍 ${lead.source}</span>
+            <p style="font-size: 12px; color: #999; margin-top: 5px;">Added: ${lead.createdAt}</p>
+            
+            <div class="notes-section">
+              <strong>Notes (${lead.notes.length}):</strong>
+              ${lead.notes.map(note => `<div class="note">📝 ${note.text} <small style="color:#999">(${note.date})</small></div>`).join('')}
+              <form class="note-form" onsubmit="event.preventDefault(); addNote(${lead.id})">
+                <input type="text" id="note-${lead.id}" placeholder="Add a note...">
+                <button type="submit" style="background:#ffc107;color:#333;">Add Note</button>
+              </form>
+            </div>
+          </div>
+          
+          <div class="lead-actions">
+            <label><strong>Status:</strong></label>
+            <select onchange="updateStatus(${lead.id}, this.value)">
+              <option value="New" ${lead.status === 'New' ? 'selected' : ''}>🆕 New</option>
+              <option value="Contacted" ${lead.status === 'Contacted' ? 'selected' : ''}>📞 Contacted</option>
+              <option value="Converted" ${lead.status === 'Converted' ? 'selected' : ''}>✅ Converted</option>
+            </select>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Initial render
+    renderLeads();
+  </script>
+</body>
+</html>
